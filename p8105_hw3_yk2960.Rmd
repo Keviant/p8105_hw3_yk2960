@@ -18,7 +18,7 @@ library(dplyr)
 library(patchwork)
 library(leaflet)
 knitr::opts_chunk$set(
-  fig.width = 6,
+  fig.width = 8,
   fig.asp = 1.1,
   out.width = "90%"
 )
@@ -108,13 +108,14 @@ aisle_ggplot<-
   coord_flip()+
 ##  facet_grid(. ~ aisle_id)+ 
   labs(
-    title = "Aisle Top 10 plot",
+    title = "Aisle Top 10 plot Bar Chart",
     x = "aisle ID",
     y = "number of items")
 
 ##
 aisle_ggplot
 ```
+
 ### Top 3 (Q1.3)
 *comment:find the three key aisles from the dataset*
 ```{r} 
@@ -207,7 +208,7 @@ data2002<-brfss %>%
   group_by(locationabbr) %>% 
   summarize(n_location = n()) %>% 
   arrange(desc(n_location)) %>% 
-  filter(order(n_location,decreasing = TRUE)<=7)
+  filter(n_location>=7)
 data2002%>% 
   knitr::kable()
   
@@ -218,15 +219,16 @@ data2010<-brfss %>%
   group_by(locationabbr) %>% 
   summarize(n_location = n()) %>% 
   arrange(desc(n_location)) %>% 
-  filter(order(n_location,decreasing = TRUE)<=7)
+  filter(n_location>=7)
 data2010%>% 
   knitr::kable()
-
-
 ##brfss %>% 
 ##  distinct(response)
-
 ```
+The states were observed at 7 or more locations in 2002 are:</br>
+`r pull(data2002,locationabbr)`
+The states were observed at 7 or more locations in 2010 are:</br>
+`r pull(data2010,locationabbr)` </br>
 
 ### Excellent Analysis (Q2.2)
 First I filter and choose the specific variables: year, state, and mean data_valuse.
@@ -243,13 +245,13 @@ excellent %>%
   ggplot(aes(x=year,y=data_value,color=state))+
   geom_line()+  
   labs(
-    title = "Excellent 50 States Data",
+    title = "Excellent 50 States Data Spaghetti Plot",
     x = "year",
     y = "data value")
 
 ```
 
-### 2006-and-2010 plot
+### 2006-and-2010 plot(Q2.3)
 I try to use viloin plot to show the distribution of data_value for responses (“Poor” to “Excellent”) among locations in NY State.Here is the plot. 
 
 ```{r}
@@ -260,7 +262,7 @@ plot_0610<-brfss %>%
   ggplot(aes(y=data_value,x=response))+
   geom_violin(aes(fill=response),alpha=0.5)+
   labs(
-    title = "2006 and 2010 data distribution-response",
+    title = "2006 and 2010 data distribution-response violin",
     x = "year",
     y = "data value")+
   theme(legend.position = "right")+
@@ -268,7 +270,7 @@ plot_0610<-brfss %>%
 
 plot_0610
 ```
-
+Here is another plot for density plot
 
 ```{r}
 
@@ -278,7 +280,7 @@ plot_0610<-brfss %>%
   ggplot(aes(x=data_value,fill=response))+
   geom_density(color="blue",adjust=0.5,alpha=0.5)+
   labs(
-    title = "2006 and 2010 data distribution-response",
+    title = "2006 and 2010 data distribution-response density plot",
     x = "year",
     y = "data value")+
   theme(legend.position = "right")+
@@ -288,12 +290,8 @@ plot_0610
 ```
 
 ## Problem 3
-```{r}
-accelerometer<-read_csv("accel_data.csv")
 
-
-```
-
+*comment: clean the data,lengthen the table*
 ```{r}
 accel = read_csv("accel_data.csv") %>% 
   mutate(weekdays = 
@@ -304,33 +302,61 @@ accel = read_csv("accel_data.csv") %>%
   pivot_longer(activity.1:activity.1440,
                names_to="time", 
                names_prefix = "activity.",
-               values_to="activity")
+               values_to="activity") %>% 
+  mutate(time=as.numeric(time))
 
 
 ```
+### Description(Q3.1)
+The dataset's size is
+`r ncol(accel)`
+columns$\times$ `r nrow(accel)` observations. </br>
+It has `r ncol(accel)` variables, which are:</br>
+`r colnames(accel)` </br>
+In these variables,  
+week shows it is the nth week's observation.(numeric,1 to 5)</br>
+day_id shows it is the nth day's observation.(numeric,1 to 35)</br>
+day shows wich day is in a weekday(character,From Sunday to Monday)</br>
+weekdays shows it is workday or weekend.(charcater)</br>
+time is for the nth minute's data in this day.(numeric, one day has 60X24 mins, so time is from 1 to 1440)</br>
+activity are the activity counts for each minute of a 24-hour day starting at midnight(numeric, has lots of "1")</br>
+
+
+
+### trends apparent(Q3.2)
 
 ```{r}
 accel %>% 
 # filter(activity!=1) %>% 
-  group_by(day_id) %>% 
-  summarise(total_activity=mean(activity)) %>% 
-  ggplot(aes(x=day_id,y=total_activity))+
+  group_by(day_id,weekdays) %>% 
+  summarise(total_activity=sum(activity)) %>% 
+  knitr::kable()
+
+
+accel %>% 
+# filter(activity!=1) %>% 
+  group_by(day_id,weekdays) %>% 
+  summarise(total_activity=sum(activity)) %>% 
+  ggplot(aes(x=day_id,y=total_activity,group=weekdays))+
   geom_point()+
-  geom_line()+ 
+  geom_line(aes(color=weekdays))+ 
   labs(
-    title = "Total Activity for each Day",
+    title = "Total Activity for each Day line chart",
     x = "day",
     y = "total activity")
 
 ```
-The plot doesn't show any regulation
+Trend on workdays are not visible; but at the weekend, the total acitivity tends to decrease day by day. 
 
+
+### 24-hour Activity Time each Day
+*comment: I transfer the time from min t hours, which is easy to read*
 ```{r}
 accel %>% 
   ggplot(aes(x=as.numeric(time)/60,activity,color=day_id))+
-  geom_point()+  
+  geom_line()+  
   labs(
-    title = "24-hours activity each day",
+    title = "24-hours activity each day line chart",
     x = "time(hours)",
     y = "activity"
     )+
@@ -342,4 +368,5 @@ accel %>%
   filter(activity>=7000)
 
 ```
-
+The acticity from 22:00 to 5:00 is lower than usual, which can be explained by lower acivity in the sleeping; The most active period is from 19:30 to 21:30</br>
+And it seems like 17-35th day's acticity is lower than the average activity on 1-16th day. 
