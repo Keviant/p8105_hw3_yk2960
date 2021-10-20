@@ -8,12 +8,7 @@ output: github_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
 
-## Liabrary installing...
-
-```{r}
 library(lubridate)
 library(p8105.datasets)
 library(tidyverse)
@@ -22,17 +17,17 @@ library(ggridges)
 library(dplyr)
 library(patchwork)
 library(leaflet)
-
 knitr::opts_chunk$set(
   fig.width = 6,
-  fig.asp = .6,
+  fig.asp = 1.1,
   out.width = "90%"
 )
 
 theme_set(theme_minimal() + theme(legend.position = "right"))
 
-
 ```
+
+
 
 ## Problem 1
 ```{r, include}
@@ -53,27 +48,43 @@ head(instacart,1)
 
 ##  filter(order_id==)
 ```
-### Description
+### Description(Q1.0)
 
 The dataset's size is
 `r ncol(instacart)`
-columns$\times$ `r nrow(instacart)` rows. 
-It has `r ncol(instacart)` variables, which are:
-`r colnames(instacart)` 
+columns$\times$ `r nrow(instacart)` rows. </br>
+It has `r ncol(instacart)` variables, which are:</br>
+`r colnames(instacart)` </br>
 In these variables, 
-eval_set is which evaluation set this order belongs in and
-only have one value "`r distinct(instacart,eval_set)`". 
-ordered has two possible values, 
-1 if this product has been ordered by this user in the past,0 otherwise
-order_number is the order sequence number for this user (1=first, n=nth)
+order_id: order identifier</br>
+product_id: product identifier</br>
+add_to_cart_order: order in which each product was added to cart
+reordered: 1 if this prodcut has been ordered by this user in the past, 0 otherwise</br>
+user_id: customer identifier</br>
+eval_set: which evaluation set this order belongs in (Note that the data for use in this class is exclusively from the “train” eval_set)</br>
+order_number: the order sequence number for this user (1=first, n=nth)</br>
+order_dow: the day of the week on which the order was placed</br>
+order_hour_of_day: the hour of the day on which the order was placed</br>
+days_since_prior_order: days since the last order, capped at 30, NA if order_number=1</br>
+product_name: name of the product</br>
+aisle_id: aisle identifier</br>
+department_id: department identifier</br>
+aisle: the name of the aisle</br>
+department: the name of the department</br>
 Here is one example for the dataset and shows the type for each variable
 `r head(instacart, 1) %>% knitr::kable()`
+
+The next code shows the example's each variable and its class.</br>
+The department, aisle and product_name's type is character, the others are
+integer. 
 
 ```{r}
 str(head(instacart, 1))
 ```
 
-### Number of Aisles
+### Number of Aisles(Q1.1)
+
+*comment:I group this dataset by aisle and arrange it by the amount of items.*
 
 ```{r}
 
@@ -85,15 +96,16 @@ aisle<-instacart %>%
 ```
 There are`r nrow(aisle)` aisles, and the most popular one is `r aisle[1,1]`
 
-### 
+### 10000 Items' Aisle(Q1.2)
+*comment: first find the aisles whose number of items is more than 10000,then show the reasonable plot.(bar chart is more readable than point chart)*
 ```{r}
 
 aisle_ggplot<-
   aisle %>% 
   filter(n_items>10000) %>% 
-  ggplot(aes(x = aisle_id, y = n_items))+
-  geom_point()+
-  geom_text(aes(label = aisle_id))  + 
+  ggplot(aes(x = aisle,y=n_items))+
+  geom_col(width=0.5) + 
+  coord_flip()+
 ##  facet_grid(. ~ aisle_id)+ 
   labs(
     title = "Aisle Top 10 plot",
@@ -103,27 +115,33 @@ aisle_ggplot<-
 ##
 aisle_ggplot
 ```
-### Top 3 
+### Top 3 (Q1.3)
+*comment:find the three key aisles from the dataset*
 ```{r} 
 three_aisle<-instacart %>% 
   filter(aisle=="baking ingredients"| 
            aisle=="dog food care"| 
            aisle=="packaged vegetables fruits")
 
+```
+*comment:group the newdataset first and then count the items and rank them,finally show the table. *
+```{r}
 three_aisle %>%
-  group_by(product_name,aisle) %>%
+  group_by(aisle,product_name) %>%
   summarize(n_items = n()) %>% 
   arrange(desc(n_items)) %>% 
+  mutate(rank=order(n_items, decreasing = TRUE)) %>% 
   filter(order(n_items, decreasing = TRUE)<=3) %>% 
   knitr::kable()
 
 ```
 
-### 
+### Pink Lady Apples and Coffee Ice Cream(Q1.4)
 
+*comment:Use pivot wider to change the table from 3x7 to 7x3(I think it is more readable), I also change the order_dow number to actual weekday.*
 ```{r}
 
-a<-instacart %>% 
+instacart %>% 
   filter(product_name=="Pink Lady Apples"|
          product_name=="Coffee Ice Cream") %>% 
   group_by(order_dow,product_name) %>% 
@@ -138,9 +156,32 @@ a<-instacart %>%
                 "3"="Wednesday",
                 "4"="Thursday",
                 "5"="Friday",
-                "6"="Saturday"))
+                "6"="Saturday")) %>% 
+  knitr::kable()
 ```
-
+*comment:2x7 table is here:*
+```{r}
+instacart %>% 
+  filter(product_name %in%
+           c("Coffee Ice Cream","Pink Lady Apples")) %>% 
+  group_by(order_dow,product_name) %>% 
+  summarize(mean_hours = mean(order_hour_of_day)) %>% 
+  janitor::clean_names()%>% 
+  mutate(order_dow=
+         recode(order_dow,
+                "0"="Sunday",
+                "1"="Monday",
+                "2"="Tuesday",
+                "3"="Wednesday",
+                "4"="Thursday",
+                "5"="Friday",
+                "6"="Saturday")) %>% 
+  pivot_wider(names_from=order_dow,values_from =mean_hours) %>%
+  knitr::kable()
+```
+## Problem 2
+###Clean Data (Q2.0)
+*comment:I clean the names, focus on Overall Health, taking levels ordered from “Poor” to “Excellent”(1 to 5).*
 ```{r}
 brfss<-p8105.datasets::brfss_smart2010 %>% 
   janitor::clean_names() %>% 
@@ -152,8 +193,14 @@ brfss<-p8105.datasets::brfss_smart2010 %>%
                          "Poor") ) %>% 
   mutate(response=forcats::fct_relevel(response, 
        c("Poor","Fair","Good", "Very good","Excellent")))
+str(brfss$response)
+```
 
-brfss %>% 
+###  7 or more locations(Q2.1)
+*comment:First I choose the specific year and variables state and detailed address,and then I use unique() method to make sure each location only occur once. Then I use group by method to fix it. *
+Here is the table for year 2002 and 2010.
+```{r}
+data2002<-brfss %>% 
   filter(year==2002) %>% 
   select(locationabbr,locationdesc) %>% 
   unique () %>% 
@@ -161,8 +208,10 @@ brfss %>%
   summarize(n_location = n()) %>% 
   arrange(desc(n_location)) %>% 
   filter(order(n_location,decreasing = TRUE)<=7)
+data2002%>% 
+  knitr::kable()
   
-brfss %>% 
+data2010<-brfss %>% 
   filter(year==2010) %>% 
   select(locationabbr,locationdesc) %>% 
   unique () %>% 
@@ -170,20 +219,25 @@ brfss %>%
   summarize(n_location = n()) %>% 
   arrange(desc(n_location)) %>% 
   filter(order(n_location,decreasing = TRUE)<=7)
+data2010%>% 
+  knitr::kable()
 
 
-brfss %>% 
-  distinct(response)
-
-p8105.datasets::brfss_smart2010
+##brfss %>% 
+##  distinct(response)
 
 ```
 
+### Excellent Analysis (Q2.2)
+First I filter and choose the specific variables: year, state, and mean data_valuse.
 ```{r}
 excellent<-brfss %>% 
   filter(response==("Excellent")) %>% 
   group_by(year,state=locationabbr) %>% 
   summarise(data_value=mean(data_value,na.rm=TRUE))
+```
+Check whether the repsonse is excellent, then I draw a “spaghetti” plot
+```{r}
 str(brfss$response)
 excellent %>% 
   ggplot(aes(x=year,y=data_value,color=state))+
@@ -195,37 +249,97 @@ excellent %>%
 
 ```
 
+### 2006-and-2010 plot
+I try to use viloin plot to show the distribution of data_value for responses (“Poor” to “Excellent”) among locations in NY State.Here is the plot. 
+
 ```{r}
-data_2006<-brfss %>% 
-  filter(year==2006,locationabbr=="NY") 
 
 
-data_2010<-brfss %>% 
-  filter(year==2010,locationabbr=="NY")
-
-plot_2006<-data_2006 %>% 
+plot_0610<-brfss %>% 
+  filter(year %in%c(2006,2010) ,locationabbr=="NY")  %>% 
   ggplot(aes(y=data_value,x=response))+
-  geom_boxplot()+
+  geom_violin(aes(fill=response),alpha=0.5)+
   labs(
-    title = "2006 data distribution-response",
+    title = "2006 and 2010 data distribution-response",
     x = "year",
     y = "data value")+
-  theme(legend.position = "none")
+  theme(legend.position = "right")+
+  facet_grid(.~year)
 
-plot_2010<-data_2010 %>% 
-  ggplot(aes(y=data_value,x=response))+
-  geom_boxplot()+
-  labs(
-    title = "2020 data distribution-response",
-    x = "response",
-    y = "data value")+
-  theme(legend.position = "bottom")
-
-
-(plot_2006+plot_2010)
+plot_0610
 ```
 
 
 ```{r}
-accelerometer<-read_csv("accel_data.csv")
+
+
+plot_0610<-brfss %>% 
+  filter(year %in%c(2006,2010) ,locationabbr=="NY")  %>% 
+  ggplot(aes(x=data_value,fill=response))+
+  geom_density(color="blue",adjust=0.5,alpha=0.5)+
+  labs(
+    title = "2006 and 2010 data distribution-response",
+    x = "year",
+    y = "data value")+
+  theme(legend.position = "right")+
+  facet_grid(.~year)
+
+plot_0610
 ```
+
+## Problem 3
+```{r}
+accelerometer<-read_csv("accel_data.csv")
+
+
+```
+
+```{r}
+accel = read_csv("accel_data.csv") %>% 
+  mutate(weekdays = 
+          ifelse(day %in%
+          c("Monday","Tuesday","Wednesday","Thursday","Friday"),
+          "weekday", "weekend")
+          ) %>% 
+  pivot_longer(activity.1:activity.1440,
+               names_to="time", 
+               names_prefix = "activity.",
+               values_to="activity")
+
+
+```
+
+```{r}
+accel %>% 
+# filter(activity!=1) %>% 
+  group_by(day_id) %>% 
+  summarise(total_activity=mean(activity)) %>% 
+  ggplot(aes(x=day_id,y=total_activity))+
+  geom_point()+
+  geom_line()+ 
+  labs(
+    title = "Total Activity for each Day",
+    x = "day",
+    y = "total activity")
+
+```
+The plot doesn't show any regulation
+
+```{r}
+accel %>% 
+  ggplot(aes(x=as.numeric(time)/60,activity,color=day_id))+
+  geom_point()+  
+  labs(
+    title = "24-hours activity each day",
+    x = "time(hours)",
+    y = "activity"
+    )+
+   scale_x_continuous(
+    breaks= seq(from=0,to=24,by=1),
+    labels = seq(from=0,to=24,by=1))
+
+accel %>% 
+  filter(activity>=7000)
+
+```
+
